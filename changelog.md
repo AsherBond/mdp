@@ -77,3 +77,6 @@ Changelog:
 - Added: Run `$PREFIX/mdp -v` to display the version of the installed project.
 -e Changelog:
 - Added: Run `$PREFIX/mdp -v` to display the version of the installed project.
+Changelog:
+- Added: Run `$PREFIX/mdp -v` to display the version of the installed project.
+- Changelog file was modified to include the above change.
