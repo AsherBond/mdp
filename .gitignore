@@ -13,3 +13,4 @@ mdp.exe
 *.sublime-workspace
 *.out
 tags
+.diffchanges
