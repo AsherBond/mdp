@@ -1,4 +1,8 @@
 
+## Changes on Friday, July 26, 2024 05:24:24 by Asher Bond- Version display command added. Changelog updated. Build workflow established.
+
+
+
 Commit hash: fad734b3ff0da6c64c36211583ae96076516c7dc
 Date: Friday, July 26, 2024 05:14:48
 Author: Asher Bond
