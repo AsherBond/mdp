@@ -1,3 +1,6 @@
+ Changelog:
+- Added: Run `$PREFIX/mdp -v` to display the version of the installed project.
+- Changelog file was modified to include the above change.
 Changelog:
 - Added a new file: `.github/workflows/build.yml`  
 - This file sets up a GitHub Actions workflow namedBuild CI that triggers on push and pull request events.  
