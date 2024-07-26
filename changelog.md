@@ -71,3 +71,5 @@ Changelog:
 - Run `ldd $PREFIX/mdp` to display the shared library dependencies.    
 - Run `$PREFIX/mdp -v` to display the version of the installed project.
 
+Changelog:
+- Added: Run `$PREFIX/mdp -v` to display the version of the installed project.
