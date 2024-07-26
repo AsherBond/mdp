@@ -1,3 +1,15 @@
+
+Commit hash: fad734b3ff0da6c64c36211583ae96076516c7dc
+Date: Friday, July 26, 2024 05:14:48
+Author: Asher Bond
+Message: "Version display command added; changelog updated."
+---
+Changelog:
+- Added: Run `$PREFIX/mdp -v` to display the version of the installed project.
+- Changelog file was modified to include the above change.
+- Added a new file: `.github/workflows/build.yml`  
+- This file sets up a GitHub Actions workflow named Build CI that triggers on push and pull request events.
+
  Changelog:
 - Added: Run `$PREFIX/mdp -v` to display the version of the installed project.
 - Changelog file was modified to include the above change.
