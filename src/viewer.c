@@ -50,7 +50,7 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
     int bar_top = (deck->headers > 0) ? 1 : 0;
     // header line 2 is displayed at the bottom
     // anyway we display the slide number at the bottom
-    int bar_bottom = (slidenum || deck->headers > 1)? 1 : 0;
+    int bar_bottom = (slidenum || deck->headers > 1) ? 1 : 0;
 
     slide_t *slide = deck->slide;
     line_t *line;
@@ -248,7 +248,7 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
         if(bar_top) {
             line = deck->header;
             offset = next_blank(line->text, 0) + 1;
-            // add text to header
+            // add 1st header to header
             mvwaddwstr(stdscr,
                        0, (COLS - line->length + offset) / 2,
                        &line->text->value[offset]);
@@ -259,13 +259,16 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
             line = deck->header->next;
             offset = next_blank(line->text, 0) + 1;
             switch(slidenum) {
-                case 0: // add text to center footer
-                    mvwaddwstr(stdscr,
-                               LINES - 1, (COLS - line->length + offset) / 2,
-                               &line->text->value[offset]);
-                    break;
+                case 0:
+                    if (deck->headers == 2) {
+                        // add 2nd header to center footer
+                        mvwaddwstr(stdscr,
+                                   LINES - 1, (COLS - line->length + offset) / 2,
+                                   &line->text->value[offset]);
+                        break;
+                    }
                 case 1:
-                case 2: // add text to left footer
+                case 2: // add 2nd header to left footer
                     mvwaddwstr(stdscr,
                                LINES - 1, 3,
                                &line->text->value[offset]);
@@ -273,14 +276,23 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
             }
         }
 
-        // add slide number to right footer
         switch(slidenum) {
-            case 1: // show slide number only
+            case 0:
+                if (deck->headers > 2) {
+                    // add 3rd header to right footer
+                    line = deck->header->next->next;
+                    offset = next_blank(line->text, 0) + 1;
+                    mvwaddwstr(stdscr,
+                               LINES - 1, COLS - line->length + offset - 3,
+                               &line->text->value[offset]);
+                }
+                break;
+            case 1: // add slide number to right footer
                 mvwprintw(stdscr,
                           LINES - 1, COLS - int_length(sc) - 3,
                           "%d", sc);
                 break;
-            case 2: // show current slide & number of slides
+            case 2: // add slide number and number of slides to right footer
                 mvwprintw(stdscr,
                           LINES - 1, COLS - int_length(deck->slides) - int_length(sc) - 6,
                           "%d / %d", sc, deck->slides);
@@ -668,8 +680,8 @@ void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colo
 void inline_display(WINDOW *window, const wchar_t *c, const int colors, int nocodebg) {
     const static wchar_t *special = L"\\*_`!["; // list of interpreted chars
     const wchar_t *i = c; // iterator
-    const wchar_t *start_link_name, *start_url;
-    int length_link_name, url_num;
+    const wchar_t *label_start, *label_end, *url_start, *url_end;
+    int label_length, url_length, url_num;
     cstack_t *stack = cstack_init();
 
 
@@ -728,47 +740,48 @@ void inline_display(WINDOW *window, const wchar_t *c, const int colors, int noco
                    *i == L'\\') {
 
                     // url in pandoc style
-                    if ((*i == L'[' && wcschr(i, L']')) ||
-                        (*i == L'!' && *(i + 1) == L'[' && wcschr(i, L']'))) {
+                    if ((*i == L'[') || (*i == L'!' && *(i + 1) && *(i + 1) == L'[')) {
+                        label_start = (*i == L'!') ? i + 2 : i + 1;
+                        label_end = url_find_closing_bracket(label_start);
+                        url_start = NULL;
+                        url_end = NULL;
 
-                        if (*i == L'!') i++;
+                        if (label_end && *(label_end + 1) && *(label_end + 1) == L'(' && *(label_end + 2)) {
+                            url_start = label_end + 2;
+                            url_end = url_find_closing_parentheses(url_start);
+                        }
 
-                        if (wcschr(i, L']')[1] == L'(' && wcschr(i, L')')) {
-                            i++;
-
+                        if (label_end && *(label_end + 1) == L'(' && url_end && *url_end == L')') {
                             // turn higlighting and underlining on
                             if (colors)
                                 wattron(window, COLOR_PAIR(CP_BLUE));
                             wattron(window, A_UNDERLINE);
 
-                            start_link_name = i;
-
                             // print the content of the label
                             // the label is printed as is
-                            do {
+                            i = label_start;
+                            while (i < label_end) {
+                                if (*i == L'\\' && *(i + 1)) {
+                                    i++;
+                                }
                                 waddnwstr(window, i, 1);
                                 i++;
-                            } while (*i != L']');
+                            }
 
-                            length_link_name = i - 1 - start_link_name;
-
-                            i++;
-                            i++;
-
-                            start_url = i;
-
-                            while (*i != L')') i++;
-
-                            url_num = url_add(start_link_name, length_link_name, start_url, i - start_url, 0, 0);
+                            label_length = label_end - label_start;
+                            url_length = url_end - url_start;
+                            url_num = url_add(label_start, label_length, url_start, url_length, 0, 0);
 
                             wprintw(window, " [%d]", url_num);
+
+                            i = url_end;
 
                             // turn highlighting and underlining off
                             wattroff(window, A_UNDERLINE);
                             wattron(window, COLOR_PAIR(CP_WHITE));
 
                         } else {
-                            wprintw(window, "[");
+                            waddnwstr(window, i, 1);
                         }
 
                     } else switch(*i) {
@@ -785,6 +798,11 @@ void inline_display(WINDOW *window, const wchar_t *c, const int colors, int noco
                         case L'`':
                             if(colors && !nocodebg)
                                 wattron(window, COLOR_PAIR(CP_BLACK));
+                            break;
+                        // broken pandoc url
+                        case L'!':
+                        case L'[':
+                            waddnwstr(window, i, 1);
                             break;
                         // do nothing for backslashes
                     }
@@ -917,7 +935,7 @@ int get_slide_number(char init) {
     return retval;
 }
 
-bool evaluate_binding(const int bindings[], char c) {
+bool evaluate_binding(const int bindings[], int c) {
     int binding;
     int ind = 0; 
     while((binding = bindings[ind]) != 0) {

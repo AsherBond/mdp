@@ -162,17 +162,23 @@ int url_count_inline(const wchar_t *line) {
     int count = 0;
     const wchar_t *i = line;
 
-    for (; *i; i++) {
+    while (*i) {
         if (*i == '\\') {
-            i++;
-        } else if ( *i == '[' && *(i+1) && *(i+1) != ']') {
-            while (*i && *i != ']') i++;
-            i++;
-            if (*i == '(' && wcschr(i, ')')) {
-                count ++;
-                i = wcschr(i, ')');
+            if (*(i + 1)) i++;
+        } else if (*i == '[') {
+            if (*(i+1) && *(i+1) != ']') {
+                i++;
+                while (*i && *i != ']') i++;
+                if (*i == ']') {
+                    i++;
+                    if (*i == '(' && wcschr(i, ')')) {
+                        count++;
+                        i = wcschr(i, ')');
+                    }
+                }
             }
         }
+        if (*i) i++;
     }
 
     return count;
@@ -182,20 +188,57 @@ int url_len_inline(const wchar_t *value) {
     int count = 0;
     const wchar_t *i = value;
 
-    for (; *i; i++) {
+    while (*i) {
         if (*i == '\\') {
-            i++;
-        } else if ( *i == '[' && *(i+1) && *(i+1) != ']') {
-            while (*i && *i != ']') i++;
-            i++;
-            if (*i == '(' && wcschr(i, ')')) {
-                while (*i && *i != ')') {
-                    count++;
+            if (*(i + 1)) i++;
+        } else if (*i == '[') {
+            if (*(i+1) && *(i+1) != ']') {
+                while (*i && *i != ']') i++;
+                if (*i == ']') {
                     i++;
+                    if (*i == '(' && wcschr(i, ')')) {
+                        while (*i && *i != ')') {
+                            count++;
+                            i++;
+                        }
+                    }
                 }
             }
         }
+        if (*i) i++;
     }
 
     return count;
+}
+
+wchar_t * url_find_closing_bracket(const wchar_t *start) {
+    if (!start || *start == L'\0') return NULL;
+    int depth = 1;
+    const wchar_t *p = start;
+    if (*p == L'[') p++;
+    while (*p) {
+        if (*p == L'[') {
+            depth++;
+        } else if (*p == L']') {
+            depth--;
+            if (depth == 0) return (wchar_t *)p;
+        }
+        p++;
+    }
+    return NULL;
+}
+
+wchar_t *url_find_closing_parentheses(const wchar_t *start) {
+    if (!start || *start == L'\0') return NULL;
+    const wchar_t *p = start;
+    while (*p) {
+        if (*p == L'\\' && *(p + 1)) {
+            p += 2;
+        } else if (*p == L')') {
+            return (wchar_t *)p;
+        } else {
+            p++;
+        }
+    }
+    return NULL;
 }
