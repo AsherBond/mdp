@@ -2,7 +2,7 @@
  * Functions necessary to parse a file and transform its content into
  * a deck of slides containing lines. All based on markdown formating
  * rules.
- * Copyright (C) 2018 Michael Goehler
+ * Copyright (C) 2026 Michael Goehler
  *
  * This file is part of mdp.
  *
@@ -866,4 +866,3 @@ int next_nonbacktick(cstring_t *text, int i) {
 
     return i;
 }
-
