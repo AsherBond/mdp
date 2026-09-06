@@ -117,24 +117,22 @@ void url_purge() {
 }
 
 static void url_del_elem(url_t *elem) {
-    if (!elem) return;
+    while (elem) {
+        url_t *next = elem->next;
 
-    if (elem->next) {
-        url_del_elem(elem->next);
-        elem->next = NULL;
+        if (elem->target) {
+            free(elem->target);
+            elem->target = NULL;
+        }
+
+        if (elem->link_name) {
+            free(elem->link_name);
+            elem->link_name = NULL;
+        }
+
+        free(elem);
+        elem = next;
     }
-
-    if (elem->target) {
-        free(elem->target);
-        elem->target = NULL;
-    }
-
-    if (elem->link_name) {
-        free(elem->link_name);
-        elem->link_name = NULL;
-    }
-
-    free(elem);
 }
 
 void url_dump(void) {
