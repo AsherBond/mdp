@@ -1,6 +1,8 @@
-%title: mdp - Sample Presentation
-%author: visit1985
-%date: 2016-02-07
+<!--
+title: mdp - Sample Presentation
+author: visit1985
+date: 2026-09-06
+-->
 
 -> mdp <-
 =========

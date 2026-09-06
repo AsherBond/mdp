@@ -100,6 +100,398 @@ static struct named_character_entity {
    { L'\0', NULL },
 };
 
+static void remove_line_from_slide(slide_t *slide, line_t *line) {
+   if(!slide || !line)
+       return;
+
+   if(line->prev)
+       line->prev->next = line->next;
+   else
+       slide->line = line->next;
+
+   if(line->next)
+       line->next->prev = line->prev;
+
+   slide->lines -= 1;
+   line->prev = line->next = NULL;
+
+   if(line->text)
+       (line->text->delete)(line->text);
+   free(line);
+}
+
+// strip HTML comment delimiters ("<!--" and "-->") from a line while
+// keeping the enclosed text intact - used while scanning top-of-file
+// metadata lines, where the text between the markers is the actual
+// value to capture (e.g. "<!-- title: Demo -->" -> "title: Demo")
+static cstring_t *strip_comment_markers(cstring_t *text) {
+   cstring_t *result = cstring_init();
+   int i = 0;
+
+   if(!text || !text->value) {
+       return result;
+   }
+
+   while(i < (int)text->size) {
+       if(wcsncmp(&text->value[i], L"<!--", 4) == 0) {
+           i += 4;
+           continue;
+       }
+
+       if(wcsncmp(&text->value[i], L"-->", 3) == 0) {
+           i += 3;
+           continue;
+       }
+
+       (result->expand)(result, text->value[i]);
+       i++;
+   }
+
+   return result;
+}
+
+// match title/author/date metadata with or without the legacy % prefix
+static int matches_metadata_keyword(const wchar_t *text, const wchar_t *keyword) {
+   size_t keyword_len = wcslen(keyword);
+   int i = 0;
+
+   while(text[i] != L'\0' && iswspace(text[i])) {
+       i++;
+   }
+
+   if(text[i] == L'%') {
+       i++;
+   }
+
+   if(wcsncmp(&text[i], keyword, keyword_len) != 0) {
+       return 0;
+   }
+
+   i += keyword_len;
+   while(text[i] != L'\0' && iswspace(text[i])) {
+       i++;
+   }
+
+   return text[i] == L':';
+}
+
+// normalize whitespace so top-of-file metadata lines are easy to match
+static cstring_t *trim_whitespace(cstring_t *text) {
+   cstring_t *result = cstring_init();
+   int start = 0;
+   int end = 0;
+
+   if(!text || !text->value) {
+       return result;
+   }
+
+   while(start < (int)text->size && iswspace(text->value[start])) {
+       start++;
+   }
+
+   end = (int)text->size;
+   while(end > start && iswspace(text->value[end - 1])) {
+       end--;
+   }
+
+   for(; start < end; start++) {
+       (result->expand)(result, text->value[start]);
+   }
+
+   return result;
+}
+
+// read the metadata value after the key, or treat the whole line as the value when implicit
+static cstring_t *metadata_value_for(cstring_t *text, const wchar_t *keyword, int allow_implicit_value) {
+   wchar_t *cursor = NULL;
+   cstring_t *value = cstring_init();
+   int i = 0;
+
+   if(!text || !text->value) {
+       return value;
+   }
+
+   while(text->value[i] != L'\0' && iswspace(text->value[i])) {
+       i++;
+   }
+
+   if(text->value[i] == L'%') {
+       i++;
+   }
+
+   if(wcsncmp(&text->value[i], keyword, wcslen(keyword)) == 0) {
+       i += (int)wcslen(keyword);
+       while(text->value[i] != L'\0' && iswspace(text->value[i])) {
+           i++;
+       }
+       if(text->value[i] == L':') {
+           i++;
+           while(text->value[i] != L'\0' && iswspace(text->value[i])) {
+               i++;
+           }
+           cursor = &text->value[i];
+           while(*cursor != L'\0') {
+               (value->expand)(value, *cursor);
+               cursor++;
+           }
+           return value;
+       }
+   }
+
+   if(allow_implicit_value) {
+       cursor = &text->value[i];
+       while(*cursor != L'\0') {
+           (value->expand)(value, *cursor);
+           cursor++;
+       }
+       return value;
+   }
+
+   return value;
+}
+
+// reformat captured metadata as title: footer: footer: entries
+static cstring_t *normalize_metadata_line(cstring_t *text, int field_index) {
+   const wchar_t *keys[] = { L"title", L"footer", L"footer", NULL };
+   const wchar_t *key = keys[field_index % 3];
+   cstring_t *value = NULL;
+   cstring_t *result = cstring_init();
+   int i = 0;
+
+   if(!text || !text->value) {
+       return result;
+   }
+
+   for(i = 0; keys[i] != NULL; i++) {
+       if(matches_metadata_keyword(text->value, keys[i])) {
+           key = keys[i];
+           value = metadata_value_for(text, keys[i], 0);
+           break;
+       }
+   }
+
+   if(!value || value->size == 0) {
+       if(matches_metadata_keyword(text->value, L"footer")) {
+           key = keys[(field_index == 0) ? 1 : (field_index % 3)];
+           value = metadata_value_for(text, L"footer", 0);
+       } else if(matches_metadata_keyword(text->value, L"author")) {
+           key = keys[1];
+           value = metadata_value_for(text, L"author", 0);
+       } else if(matches_metadata_keyword(text->value, L"date")) {
+           key = keys[2];
+           value = metadata_value_for(text, L"date", 0);
+       }
+   }
+
+   if(!value || value->size == 0) {
+       value = metadata_value_for(text, key, 1);
+   }
+
+   if(value->size == 0) {
+       (value->delete)(value);
+       return result;
+   }
+
+   for(i = 0; key[i] != L'\0'; i++) {
+       (result->expand)(result, key[i]);
+   }
+   (result->expand)(result, L':');
+   (result->expand)(result, L' ');
+   for(i = 0; value->value[i] != L'\0'; i++) {
+       (result->expand)(result, value->value[i]);
+   }
+
+   (value->delete)(value);
+   return result;
+}
+
+// remove comment markers and hidden fragments from slide content, tracking
+// comment state across multiple lines so a block like "<!--\nhidden\n-->"
+// is fully discarded, not just the marker lines themselves
+static void strip_comment_markup_from_slide(slide_t *slide) {
+   line_t *line = slide ? slide->line : NULL;
+   int in_comment_block = 0;
+
+   while(line) {
+       line_t *next = line->next;
+       cstring_t *filtered = cstring_init();
+       int i = 0;
+
+       if(!line->text || !line->text->value) {
+           line = next;
+           continue;
+       }
+
+       while(i < (int)line->text->size) {
+           if(in_comment_block) {
+               if(wcsncmp(&line->text->value[i], L"-->", 3) == 0) {
+                   i += 3;
+                   in_comment_block = 0;
+                   continue;
+               }
+               i++;
+               continue;
+           }
+
+           if(wcsncmp(&line->text->value[i], L"<!--", 4) == 0) {
+               // drop a trailing space left behind by the removed comment
+               if(filtered->size > 0 && iswspace(filtered->value[filtered->size - 1])) {
+                   filtered->strip(filtered, filtered->size - 1, 1);
+               }
+               in_comment_block = 1;
+               i += 4;
+               continue;
+           }
+
+           (filtered->expand)(filtered, line->text->value[i]);
+           i++;
+       }
+
+       if(filtered->size == 0) {
+           (filtered->delete)(filtered);
+           remove_line_from_slide(slide, line);
+       } else {
+           (line->text->delete)(line->text);
+           line->text = filtered;
+           line->offset = next_nonblank(line->text, 0);
+           if(line->text->value)
+               adjust_line_length(line);
+       }
+
+       line = next;
+   }
+}
+
+// collect the leading metadata comments and pull them out of the first slide
+static void capture_top_metadata_comments(deck_t *deck) {
+   line_t *line = deck && deck->slide ? deck->slide->line : NULL;
+   line_t *header = NULL;
+   line_t *header_tail = NULL;
+   int hc = 0;
+   int field_index = 0;
+   int in_comment_block = 0;
+   int started = 0;
+
+   while(line) {
+       line_t *next = line->next;
+       cstring_t *candidate = NULL;
+       cstring_t *trimmed = NULL;
+       cstring_t *header_text = NULL;
+       cstring_t *raw_trimmed = NULL;
+       int opens_comment_block = 0;
+       int closes_comment_block = 0;
+
+       // once 3 fields are collected, only keep draining lines while a
+       // comment block is still open (to remove its trailing "-->"),
+       // otherwise stop and leave the rest of the slide untouched
+       if(field_index >= 3 && !in_comment_block) {
+           break;
+       }
+
+       if(!line->text || !line->text->value || line->text->size == 0) {
+           if(!started) {
+               break;
+           }
+           remove_line_from_slide(deck->slide, line);
+           line = next;
+           continue;
+       }
+
+       // only a line that *starts* with the comment marker opens a
+       // metadata block; a line with other text before "<!--" (e.g.
+       // "abc <!-- def -->") is regular slide content, not metadata
+       raw_trimmed = trim_whitespace(line->text);
+       opens_comment_block = raw_trimmed->size >= 4 &&
+           wcsncmp(raw_trimmed->value, L"<!--", 4) == 0;
+       (raw_trimmed->delete)(raw_trimmed);
+       closes_comment_block = wcsstr(line->text->value, L"-->") != NULL;
+
+       if(opens_comment_block) {
+           in_comment_block = 1;
+           started = 1;
+       }
+
+       // draining trailing lines of an already-closed metadata block
+       if(field_index >= 3) {
+           remove_line_from_slide(deck->slide, line);
+           line = next;
+           if(closes_comment_block) {
+               in_comment_block = 0;
+           }
+           continue;
+       }
+
+       candidate = strip_comment_markers(line->text);
+       trimmed = trim_whitespace(candidate);
+       (candidate->delete)(candidate);
+
+       if(trimmed->size == 0) {
+           if(!started) {
+               (trimmed->delete)(trimmed);
+               break;
+           }
+           (trimmed->delete)(trimmed);
+           remove_line_from_slide(deck->slide, line);
+           line = next;
+           if(closes_comment_block) {
+               in_comment_block = 0;
+           }
+           continue;
+       }
+
+       if(in_comment_block ||
+          opens_comment_block ||
+          matches_metadata_keyword(trimmed->value, L"title") ||
+          matches_metadata_keyword(trimmed->value, L"footer") ||
+          matches_metadata_keyword(trimmed->value, L"author") ||
+          matches_metadata_keyword(trimmed->value, L"date")) {
+           started = 1;
+           header_text = normalize_metadata_line(trimmed, field_index);
+           if(header_text->size == 0) {
+               (trimmed->delete)(trimmed);
+               remove_line_from_slide(deck->slide, line);
+               line = next;
+               if(closes_comment_block) {
+                   in_comment_block = 0;
+               }
+               continue;
+           }
+
+           line_t *header_line = new_line();
+           header_line->text = header_text;
+           header_line->offset = next_nonblank(header_text, 0);
+           if(!header) {
+               header = header_line;
+           } else {
+               header_tail->next = header_line;
+               header_line->prev = header_tail;
+           }
+           header_tail = header_line;
+           hc++;
+           field_index++;
+           remove_line_from_slide(deck->slide, line);
+           line = next;
+           (trimmed->delete)(trimmed);
+           if(closes_comment_block) {
+               in_comment_block = 0;
+           }
+           continue;
+       }
+
+       if(closes_comment_block) {
+           in_comment_block = 0;
+       }
+
+       (trimmed->delete)(trimmed);
+       break;
+   }
+
+   if(header) {
+       deck->header = header;
+       deck->headers = hc;
+   }
+}
+
 deck_t *markdown_load(FILE *input, int noexpand) {
 
     wchar_t c = L'\0';    // char
@@ -241,15 +633,26 @@ deck_t *markdown_load(FILE *input, int noexpand) {
     slide->lines = lc;
     deck->slides = sc;
 
-    // detect header
-    line = deck->slide->line;
-    if(line && line->text->size > 0 && line->text->value[0] == L'%') {
+    capture_top_metadata_comments(deck);
+
+    slide = deck->slide;
+    while(slide) {
+        strip_comment_markup_from_slide(slide);
+        slide = slide->next;
+    }
+
+    // detect legacy header lines
+    line = deck->slide ? deck->slide->line : NULL;
+    if(!deck->header &&
+       line && line->text && line->text->size > 0 &&
+       line->text->value[next_nonblank(line->text, 0)] == L'%') {
 
         // assign header to deck
         deck->header = line;
 
         // find first non-header line
-        while(line && line->text->size > 0 && line->text->value[0] == L'%') {
+        while(line && line->text && line->text->size > 0 &&
+              line->text->value[next_nonblank(line->text, 0)] == L'%') {
             hc++;
             line = line->next;
         }

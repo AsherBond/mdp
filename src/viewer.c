@@ -30,6 +30,39 @@
 #include "viewer.h"
 #include "config.h"
 
+// metadata labels should not count toward the rendered header/footer width
+static int header_value_offset(cstring_t *text) {
+    int start = 0;
+    int i = 0;
+
+    if(!text || !text->value) {
+        return 0;
+    }
+
+    start = next_nonblank(text, 0);
+    i = start;
+    while(i < text->size && text->value[i] != L':') {
+        i++;
+    }
+
+    if(i < text->size && text->value[i] == L':') {
+        return next_nonblank(text, i + 1);
+    }
+
+    return start;
+}
+
+// use the visible value only, not the metadata key, when centering text
+static int header_value_length(cstring_t *text) {
+    int offset = header_value_offset(text);
+
+    if(!text || !text->value) {
+        return 0;
+    }
+
+    return text->size - offset;
+}
+
 int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg, int top_indent, int left_indent) {
 
     int c = 0;                // char
@@ -247,23 +280,23 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
         // setup header
         if(bar_top) {
             line = deck->header;
-            offset = next_blank(line->text, 0) + 1;
+            offset = header_value_offset(line->text);
             // add 1st header to header
             mvwaddwstr(stdscr,
-                       0, (COLS - line->length + offset) / 2,
+                       0, (COLS - header_value_length(line->text)) / 2,
                        &line->text->value[offset]);
         }
 
         // setup footer
         if(deck->headers > 1) {
             line = deck->header->next;
-            offset = next_blank(line->text, 0) + 1;
+            offset = header_value_offset(line->text);
             switch(slidenum) {
                 case 0:
                     if (deck->headers == 2) {
                         // add 2nd header to center footer
                         mvwaddwstr(stdscr,
-                                   LINES - 1, (COLS - line->length + offset) / 2,
+                                   LINES - 1, (COLS - header_value_length(line->text)) / 2,
                                    &line->text->value[offset]);
                         break;
                     }
@@ -281,9 +314,9 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
                 if (deck->headers > 2) {
                     // add 3rd header to right footer
                     line = deck->header->next->next;
-                    offset = next_blank(line->text, 0) + 1;
+                    offset = header_value_offset(line->text);
                     mvwaddwstr(stdscr,
-                               LINES - 1, COLS - line->length + offset - 3,
+                               LINES - 1, COLS - header_value_length(line->text) - 3,
                                &line->text->value[offset]);
                 }
                 break;

@@ -129,10 +129,32 @@ This enables the user to display bullet points or list items one by one
 .
 .SS "Headers"
 .B mdp
-supports header lines in the format of
-.BR @ "[DESCRIPTION] " [VALUE]
-The first two header lines are displayed as title and author in top and
-bottom bar.
+supports metadata lines at the top of the input file in the form
+.BR [KEY] : [VALUE] .
+The first metadata entry is used as the title, and repeated
+.BR footer:
+entries are used for the lower bar. If only one footer value is given, it is
+centered when slide numbers are hidden. For example:
+.PP
+.nf
+<!--
+title: Example Presentation
+footer: Someone
+footer: 2026-01-01
+-->
+.fi
+.PP
+Legacy metadata is also accepted as
+.BR %title: , %author: , %date:
+lines at the top of the input file. The old
+.BR %author:
+and
+.BR %date:
+labels are treated as the first and second footer values respectively. HTML
+comments may be used to hide those metadata lines from the slide deck, and the
+comment metadata does not require
+.BR %
+prefixes.
 .PP
 Headers are only recognized at the top of the input
 .IR FILE .
