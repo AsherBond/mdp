@@ -30,7 +30,7 @@
 #include "viewer.h"
 #include "config.h"
 
-int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg) {
+int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg, int top_indent, int left_indent) {
 
     int c = 0;                // char
     int i = 0;                // iterate
@@ -307,8 +307,10 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
 
         // print lines
         while(line) {
-            add_line(content, l + ((LINES - slide->lines_consumed - bar_top - bar_bottom) / 2),
-                     (COLS - max_cols) / 2, line, max_cols, colors, nocodebg);
+            int base_y = ((LINES - slide->lines_consumed - bar_top - bar_bottom) / 2) + top_indent;
+            int base_x = ((COLS - max_cols) / 2) + left_indent;
+
+            add_line(content, l + base_y, base_x, line, max_cols, colors, nocodebg);
 
             // raise stop counter if we pass a line having a stop bit
             if(CHECK_BIT(line->bits, IS_STOP))

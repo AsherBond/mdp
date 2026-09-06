@@ -20,6 +20,7 @@ reload          *r*
 slide N         *1..9*
 first slide     *Home*, *g*
 last slide      *End*, *G*
+layout offset   *mdp -T 2 -L 4*
 
 -------------------------------------------------
 

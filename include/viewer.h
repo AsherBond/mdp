@@ -52,7 +52,7 @@
 #define CP_YELLOW 4 // 208
 #define CP_BLACK  5 // CP_WHITE with foreground and background swapped
 
-int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg);
+int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg, int top_indent, int left_indent);
 void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colors, int nocodebg);
 void inline_display(WINDOW *window, const wchar_t *c, const int colors, int nocodebg);
 void fade_out(WINDOW *window, int trans, int colors, int invert);
