@@ -634,6 +634,38 @@ int markdown_analyse(cstring_t *text, int prev) {
                 SET_BIT(bits, IS_H2_ATX);
             }
 
+            // IS_H3..IS_H6
+            if(text->value[offset] == L'#' &&
+               text->value[offset+1] == L'#' &&
+               text->value[offset+2] == L'#' &&
+               iswspace(text->value[offset+3])) {
+                SET_BIT(bits, IS_H3_ATX);
+            }
+            if(text->value[offset] == L'#' &&
+               text->value[offset+1] == L'#' &&
+               text->value[offset+2] == L'#' &&
+               text->value[offset+3] == L'#' &&
+               iswspace(text->value[offset+4])) {
+                SET_BIT(bits, IS_H4_ATX);
+            }
+            if(text->value[offset] == L'#' &&
+               text->value[offset+1] == L'#' &&
+               text->value[offset+2] == L'#' &&
+               text->value[offset+3] == L'#' &&
+               text->value[offset+4] == L'#' &&
+               iswspace(text->value[offset+5])) {
+                SET_BIT(bits, IS_H5_ATX);
+            }
+            if(text->value[offset] == L'#' &&
+               text->value[offset+1] == L'#' &&
+               text->value[offset+2] == L'#' &&
+               text->value[offset+3] == L'#' &&
+               text->value[offset+4] == L'#' &&
+               text->value[offset+5] == L'#' &&
+               iswspace(text->value[offset+6])) {
+                SET_BIT(bits, IS_H6_ATX);
+            }
+
             // IS_HR
             if((minus >= 3 && equals + hashes + stars + other == 0) ||
                (stars >= 3 && equals + hashes + minus + other == 0)) {

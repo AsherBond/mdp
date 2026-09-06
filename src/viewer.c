@@ -636,8 +636,10 @@ void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colo
                 }
             }
 
-            // IS_H1 || IS_H2
-            if(CHECK_BIT(line->bits, IS_H1) || CHECK_BIT(line->bits, IS_H2)) {
+            // ATX headers
+            if(CHECK_BIT(line->bits, IS_H1) || CHECK_BIT(line->bits, IS_H2) ||
+               CHECK_BIT(line->bits, IS_H3_ATX) || CHECK_BIT(line->bits, IS_H4_ATX) ||
+               CHECK_BIT(line->bits, IS_H5_ATX) || CHECK_BIT(line->bits, IS_H6_ATX)) {
 
                 // set headline color
                 if(colors)
@@ -732,10 +734,10 @@ void inline_display(WINDOW *window, const wchar_t *c, const int colors, int noco
 
                 // emphasis or code span can start after new-line or space only
                 // and of cause after another emphasis markup
-                //TODO this condition looks ugly
                 if(i == c ||
                    iswspace(*(i - 1)) ||
-                   ((iswspace(*(i - 1)) || *(i - 1) == L'*' || *(i - 1) == L'_') &&
+                   ((*i == L'*' || *i == L'_') &&
+                    (*(i - 1) == L'*' || *(i - 1) == L'_') &&
                     ((i - 1) == c || iswspace(*(i - 2)))) ||
                    *i == L'\\') {
 

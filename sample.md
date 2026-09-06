@@ -41,8 +41,8 @@ Each of these represents the start of a new slide.
 
 -> # Supported markdown formatting <-
 
-First-level headers can be prefixed by single *#*
-or underlined by *===*.
+First-level headers can be prefixed by a single *#*
+(ATX) or underlined by *===* (Setext).
 
 \# first-level
 
@@ -54,8 +54,8 @@ becomes
 
 -> # Supported markdown formatting <-
 
-Second-level headers can be prefixed by *##* or
-underlined by *---*.
+Second-level headers can be prefixed by *##* (ATX) or
+underlined by *---* (Setext).
 
 second-level
 \------------
@@ -64,6 +64,24 @@ becomes
 
 second-level
 ------------
+
+-------------------------------------------------
+
+-> # Supported markdown formatting <-
+
+ATX headers can also use three to six *#* markers.
+
+\### third-level
+\#### fourth-level
+\##### fifth-level
+\###### sixth-level
+
+becomes
+
+### third-level
+#### fourth-level
+##### fifth-level
+###### sixth-level
 
 
 -------------------------------------------------
