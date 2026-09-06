@@ -31,6 +31,13 @@
 
 #include "parser.h"
 
+// forward declarations for helpers only used within this file
+static int markdown_analyse(cstring_t *text, int prev);
+static void adjust_line_length(line_t *line);
+static void expand_character_entities(line_t *line);
+static int next_nontilde(cstring_t *text, int i);
+static int next_nonbacktick(cstring_t *text, int i);
+
 // char entry translation table
 static struct named_character_entity {
     wchar_t        ucs;
@@ -802,7 +809,7 @@ deck_t *markdown_load(FILE *input, int noexpand) {
     return deck;
 }
 
-int markdown_analyse(cstring_t *text, int prev) {
+static int markdown_analyse(cstring_t *text, int prev) {
 
     // static variables can not be redeclaired, but changed outside of a declaration
     // the program remembers their value on every function calls
@@ -1142,7 +1149,7 @@ void markdown_debug(deck_t *deck, int debug) {
     }
 }
 
-void expand_character_entities(line_t *line)
+static void expand_character_entities(line_t *line)
 {
     wchar_t *ampersand;
     wchar_t *prev, *curr;
@@ -1219,7 +1226,7 @@ void expand_character_entities(line_t *line)
     }
 }
 
-void adjust_line_length(line_t *line) {
+static void adjust_line_length(line_t *line) {
     int l = 0;
     const static wchar_t *special = L"\\*_`"; // list of interpreted chars
     const wchar_t *c = &line->text->value[0];
@@ -1288,14 +1295,14 @@ int next_word(cstring_t *text, int i) {
     return next_nonblank(text, next_blank(text, i));
 }
 
-int next_nontilde(cstring_t *text, int i) {
+static int next_nontilde(cstring_t *text, int i) {
     while ((i < text->size) && text->value[i] == L'~')
         i++;
 
     return i;
 }
 
-int next_nonbacktick(cstring_t *text, int i) {
+static int next_nonbacktick(cstring_t *text, int i) {
     while ((i < text->size) && text->value[i] == L'`')
         i++;
 

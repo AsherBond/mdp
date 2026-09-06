@@ -27,7 +27,7 @@
 
 #include "main.h"
 
-void usage() {
+static void usage() {
     fprintf(stderr, "%s", "Usage: mdp [OPTION]... [FILE]\n");
     fprintf(stderr, "%s", "A command-line based markdown presentation tool.\n\n");
     fprintf(stderr, "%s", "  -c, --nocodebg         don't change the background color of code blocks\n");
@@ -48,7 +48,7 @@ void usage() {
     exit(EXIT_FAILURE);
 }
 
-void version() {
+static void version() {
     printf("mdp %d.%d.%d\n", MDP_VER_MAJOR, MDP_VER_MINOR, MDP_VER_REVISION);
     printf("Copyright (C) 2026 Michael Goehler\n");
     printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
@@ -58,7 +58,7 @@ void version() {
     exit(EXIT_SUCCESS);
 }
 
-int parse_integer(const char *str, const char *argv0, const char *name, int negative) {
+static int parse_integer(const char *str, const char *argv0, const char *name, int negative) {
     char *end = NULL;
     long value;
 

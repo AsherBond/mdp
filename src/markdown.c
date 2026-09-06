@@ -39,7 +39,7 @@ line_t *next_line(line_t *prev) {
     return x;
 }
 
-slide_t *new_slide() {
+static slide_t *new_slide() {
     slide_t *x = malloc(sizeof(slide_t));
     x->line = NULL;
     x->prev = x->next = NULL;
@@ -62,7 +62,7 @@ deck_t *new_deck() {
     return x;
 }
 
-void free_line(line_t *line) {
+static void free_line(line_t *line) {
     line_t *next;
     while (line) {
         next = line->next;

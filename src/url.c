@@ -27,8 +27,6 @@
 #include "url.h"
 
 static void url_del_elem(url_t *elem);
-static void url_print(url_t *u);
-
 static url_t *list;
 static int index_max;
 static int init_ok;
@@ -96,19 +94,6 @@ wchar_t * url_get_target(int index) {
     } else return NULL;
 }
 
-wchar_t * url_get_name(int index) {
-    url_t *tmp = list;
-
-    while (index > 0 && tmp && tmp->next) {
-        tmp = tmp->next;
-        index --;
-    }
-
-    if (!index) {
-        return tmp->link_name;
-    } else return NULL;
-}
-
 void url_purge() {
     url_del_elem(list);
     list = NULL;
@@ -133,23 +118,6 @@ static void url_del_elem(url_t *elem) {
         free(elem);
         elem = next;
     }
-}
-
-void url_dump(void) {
-    if (!list) return;
-
-    url_t *tmp = list;
-
-    while (tmp) {
-        url_print(tmp);
-        if (tmp->next)
-            tmp = tmp->next;
-        else break;
-    }
-}
-
-static void url_print(url_t *u) {
-    printf("url_t @ %p\n", u);
 }
 
 int url_get_amount(void) {

@@ -25,14 +25,9 @@
  *
  * function: markdown_load is the main function which reads a file handle,
  *           and initializes deck, slides and lines
- * function: markdown_analyse which is used to identify line wide formatting
- *           rules in given line
  * function: markdown_debug to print a report of the generated data structure
- * function: adjust_line_length to calculate line length excluding markup
- * function: is_utf8 detects multi-byte char
- * function: length_utf8 calculates the amount of bytes used for a multi-byte
- *           char
- * function: next_nonblank, next_blank, next_word to calculate string offset's
+ * function: next_nonblank, prev_blank, next_blank, next_word to calculate
+ *           string offset's
  *
  */
 
@@ -50,15 +45,10 @@
 #define UNORDERED_LIST_MAX_LEVEL 3
 
 deck_t *markdown_load(FILE *input, int noexpand);
-int markdown_analyse(cstring_t *text, int prev);
 void markdown_debug(deck_t *deck, int debug);
-void expand_character_entities(line_t *line);
-void adjust_line_length(line_t *line);
 int next_nonblank(cstring_t *text, int i);
 int prev_blank(cstring_t *text, int i);
 int next_blank(cstring_t *text, int i);
 int next_word(cstring_t *text, int i);
-int next_nontilde(cstring_t *text, int i);
-int next_nonbacktick(cstring_t *text, int i);
 
 #endif // !defined( PARSER_H )

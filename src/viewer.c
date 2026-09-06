@@ -30,6 +30,15 @@
 #include "viewer.h"
 #include "config.h"
 
+// forward declarations for helpers only used within this file
+static void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colors, int nocodebg);
+static void inline_display(WINDOW *window, const wchar_t *c, const int colors, int nocodebg);
+static void fade_out(WINDOW *window, int trans, int colors, int invert);
+static void fade_in(WINDOW *window, int trans, int colors, int invert);
+static int int_length(int val);
+static int get_slide_number(char init);
+static bool evaluate_binding(const int bindings[], int c);
+
 // metadata labels should not count toward the rendered header/footer width
 static int header_value_offset(cstring_t *text) {
     int start = 0;
@@ -664,7 +673,7 @@ void setup_list_strings(void)
     }
 }
 
-void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colors, int nocodebg) {
+static void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colors, int nocodebg) {
 
     int i; // increment
     int offset = 0; // text offset
@@ -848,7 +857,7 @@ void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colo
     wattroff(window, A_UNDERLINE);
 }
 
-void inline_display(WINDOW *window, const wchar_t *c, const int colors, int nocodebg) {
+static void inline_display(WINDOW *window, const wchar_t *c, const int colors, int nocodebg) {
     const static wchar_t *special = L"\\*_`!["; // list of interpreted chars
     const wchar_t *i = c; // iterator
     const wchar_t *label_start, *label_end, *url_start, *url_end;
@@ -1020,7 +1029,7 @@ void inline_display(WINDOW *window, const wchar_t *c, const int colors, int noco
     (stack->delete)(stack);
 }
 
-void fade_out(WINDOW *window, int trans, int colors, int invert) {
+static void fade_out(WINDOW *window, int trans, int colors, int invert) {
     int i; // increment
     if(colors && COLORS == 256) {
         for(i = 22; i >= 0; i--) {
@@ -1050,7 +1059,7 @@ void fade_out(WINDOW *window, int trans, int colors, int invert) {
     }
 }
 
-void fade_in(WINDOW *window, int trans, int colors, int invert) {
+static void fade_in(WINDOW *window, int trans, int colors, int invert) {
     int i; // increment
     if(colors && COLORS == 256) {
         for(i = 0; i <= 23; i++) {
@@ -1080,7 +1089,7 @@ void fade_in(WINDOW *window, int trans, int colors, int invert) {
     }
 }
 
-int int_length (int val) {
+static int int_length (int val) {
     int l = 1;
     while(val > 9) {
         l++;
@@ -1089,7 +1098,7 @@ int int_length (int val) {
     return l;
 }
 
-int get_slide_number(char init) {
+static int get_slide_number(char init) {
     int retval = init - '0';
     int c;
     // block for tenths of a second when using getch, ERR if no input
@@ -1106,7 +1115,7 @@ int get_slide_number(char init) {
     return retval;
 }
 
-bool evaluate_binding(const int bindings[], int c) {
+static bool evaluate_binding(const int bindings[], int c) {
     int binding;
     int ind = 0; 
     while((binding = bindings[ind]) != 0) {
