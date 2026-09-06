@@ -63,18 +63,197 @@ static int header_value_length(cstring_t *text) {
     return text->size - offset;
 }
 
+// block until the terminal is resized or the user asks to quit
+// returns true if the terminal was resized, false if quit was requested
+static bool wait_for_resize(void) {
+    int c;
+
+    for (;;) {
+        c = getch();
+
+        if(c == KEY_RESIZE) {
+            return true;
+        }
+
+        if(evaluate_binding(quit_binding, c)) {
+            return false;
+        }
+    }
+}
+
+enum measure_status {
+    MEASURE_OK,
+    MEASURE_WIDTH_ERROR,
+    MEASURE_HEIGHT_ERROR
+};
+
+// measure how many screen lines/columns the deck needs to render given the
+// current terminal geometry (COLS/LINES), and record each slide's consumed
+// line count for later use. On success, *max_lines and *max_cols receive the
+// measured maxima. On MEASURE_WIDTH_ERROR, *err_slide/*err_line/*err_needed
+// describe the offending slide/line and the minimum column width required.
+// On MEASURE_HEIGHT_ERROR, *err_slide/*err_needed describe the offending
+// slide and the minimum number of lines required.
+static enum measure_status measure_deck(deck_t *deck, int bar_top, int bar_bottom,
+                                         int *max_lines, int *max_cols,
+                                         int *err_slide, int *err_line, int *err_needed) {
+    int i, lc, ln, sc, offset;
+    int lines = 0, lines_slide = -1, cols = 0;
+    slide_t *slide = deck->slide;
+    line_t *line;
+
+    sc = 1;
+
+    while(slide) {
+        lc = 0;
+        line = slide->line;
+        ln = 0; // line number within the current slide
+
+        while(line && line->text) {
+            ++ln;
+
+            if (line->text->value) {
+                lc += url_count_inline(line->text->value);
+            }
+
+            if(line->length > COLS) {
+                i = line->length;
+                offset = 0;
+                while(i > COLS) {
+
+                    i = prev_blank(line->text, offset + COLS) - offset;
+
+                    // single word is > COLS
+                    if(!i) {
+                        // calculate min_width
+                        i = next_blank(line->text, offset + COLS) - offset;
+
+                        *err_slide = sc;
+                        *err_line = ln;
+                        *err_needed = i;
+                        return MEASURE_WIDTH_ERROR;
+                    }
+
+                    // set cols
+                    cols = MAX(i, cols);
+
+                    // iterate to next line
+                    offset = prev_blank(line->text, offset + COLS);
+                    i = line->length - offset;
+                    lc++;
+                }
+                // set cols one last time
+                cols = MAX(i, cols);
+            } else {
+                // set cols
+                cols = MAX(line->length, cols);
+            }
+            lc++;
+            line = line->next;
+        }
+
+        lines = MAX(lc, lines);
+        if (lc == lines) {
+            lines_slide = sc;
+        }
+
+        slide->lines_consumed = lc;
+        slide = slide->next;
+        ++sc;
+    }
+
+    // not enough lines
+    if(lines + bar_top + bar_bottom > LINES) {
+        *err_slide = lines_slide;
+        *err_needed = lines + bar_top + bar_bottom;
+        return MEASURE_HEIGHT_ERROR;
+    }
+
+    *max_lines = lines;
+    *max_cols = cols;
+    return MEASURE_OK;
+}
+
+// measure the deck against the current terminal geometry, showing an
+// in-screen error and waiting for a resize if it doesn't fit. Returns true
+// once the deck fits, or false if the user asked to quit while waiting.
+static bool measure_or_wait(deck_t *deck, int bar_top, int bar_bottom, int *max_lines, int *max_cols) {
+    for (;;) {
+        int err_slide = 0, err_line = 0, err_needed = 0;
+        enum measure_status status = measure_deck(deck, bar_top, bar_bottom, max_lines, max_cols, &err_slide, &err_line, &err_needed);
+        cstring_t *message;
+        wchar_t buf[512];
+        int width, x, y, pos, end;
+
+        if(status == MEASURE_OK) {
+            return true;
+        }
+
+        // clear the screen and show the error instead of exiting, so we can
+        // recover automatically once the terminal is resized
+        erase();
+        // reset stdscr's attributes, otherwise the error would inherit
+        // whatever color (e.g. the header color) was last set on stdscr
+        wattrset(stdscr, A_NORMAL);
+
+        message = cstring_init();
+        if(status == MEASURE_WIDTH_ERROR) {
+            swprintf(buf, sizeof(buf) / sizeof(wchar_t),
+                L"Error on slide %d, line %d: Terminal width (%d columns) too small. "
+                L"Need at least %d columns. You may need to shorten some lines by "
+                L"inserting line breaks. Resize the terminal to continue, or press q to quit.",
+                err_slide, err_line, COLS, err_needed);
+        } else {
+            swprintf(buf, sizeof(buf) / sizeof(wchar_t),
+                L"Error on slide %d: Terminal height (%d lines) too small. Need at least "
+                L"%d lines. You may need to add additional horizontal rules (---) to split "
+                L"your file in shorter slides. Resize the terminal to continue, or press q to quit.",
+                err_slide, LINES, err_needed);
+        }
+        (message->expand_arr)(message, buf);
+
+        // print the message word-wrapped to fit within COLS, reusing the
+        // same word-scanning helpers used for wrapping slide text
+        width = MAX(COLS, 1);
+        x = 0;
+        y = 0;
+        pos = next_nonblank(message, 0);
+        while(pos < message->size) {
+            end = next_blank(message, pos);
+
+            // wrap to the next line if this word doesn't fit anymore
+            if(x > 0 && x + (end - pos) > width) {
+                y++;
+                x = 0;
+            }
+
+            mvprintw(y, x, "%.*ls", end - pos, &message->value[pos]);
+            x += (end - pos) + 1;
+
+            pos = next_nonblank(message, end);
+        }
+
+        (message->delete)(message);
+        refresh();
+
+        // wait for the terminal to be resized (or quit), then loop back and
+        // re-measure using the new terminal geometry
+        if(!wait_for_resize()) {
+            return false;
+        }
+    }
+}
+
 int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg, int top_indent, int left_indent) {
 
     int c = 0;                // char
     int i = 0;                // iterate
     int l = 0;                // line number
-    int lc = 0;               // line count
     int sc = 1;               // slide count
     int colors = 0;           // amount of colors supported
     int fade = 0;             // disable color fading by default
     int trans = -1;           // enable transparency if term supports it
     int max_lines = 0;        // max lines per slide
-    int max_lines_slide = -1; // the slide that has the most lines
     int max_cols = 0;         // max columns per line
     int offset;               // text offset
     int stop = 0;             // passed stop bits per slide
@@ -91,82 +270,6 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
     // init ncurses
     initscr();
 
-    while(slide) {
-        lc = 0;
-        line = slide->line;
-
-        while(line && line->text) {
-
-            if (line->text->value) {
-                lc += url_count_inline(line->text->value);
-                line->length -= url_len_inline(line->text->value);
-            }
-
-            if(line->length > COLS) {
-                i = line->length;
-                offset = 0;
-                while(i > COLS) {
-
-                    i = prev_blank(line->text, offset + COLS) - offset;
-
-                    // single word is > COLS
-                    if(!i) {
-                        // calculate min_width
-                        i = next_blank(line->text, offset + COLS) - offset;
-
-                        // disable ncurses
-                        endwin();
-
-                        // print error
-                        fwprintf(stderr, L"Error: Terminal width (%i columns) too small. Need at least %i columns.\n", COLS, i);
-                        fwprintf(stderr, L"You may need to shorten some lines by inserting line breaks.\n");
-
-                        // no reload
-                        return 0;
-                    }
-
-                    // set max_cols
-                    max_cols = MAX(i, max_cols);
-
-                    // iterate to next line
-                    offset = prev_blank(line->text, offset + COLS);
-                    i = line->length - offset;
-                    lc++;
-                }
-                // set max_cols one last time
-                max_cols = MAX(i, max_cols);
-            } else {
-                // set max_cols
-                max_cols = MAX(line->length, max_cols);
-            }
-            lc++;
-            line = line->next;
-        }
-
-        max_lines = MAX(lc, max_lines);
-        if (lc == max_lines) {
-            max_lines_slide = sc;
-        }
-
-        slide->lines_consumed = lc;
-        slide = slide->next;
-        ++sc;
-    }
-
-    // not enough lines
-    if(max_lines + bar_top + bar_bottom > LINES) {
-
-        // disable ncurses
-        endwin();
-
-        // print error
-        fwprintf(stderr, L"Error: Terminal height (%i lines) too small. Need at least %i lines for slide #%i.\n", LINES, max_lines + bar_top + bar_bottom, max_lines_slide);
-        fwprintf(stderr, L"You may need to add additional horizontal rules (---) to split your file in shorter slides.\n");
-
-        // no reload
-        return 0;
-    }
-
     // disable cursor
     curs_set(0);
 
@@ -176,8 +279,30 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
     // make getch() process one char at a time
     cbreak();
 
-    // enable arrow keys
+    // enable arrow keys and resize events
     keypad(stdscr,TRUE);
+
+    // strip the hidden url target length from the rendered line length once,
+    // so wrapping/height calculations below always reflect what is actually
+    // printed to the screen (this must not be repeated on re-measure)
+    slide = deck->slide;
+    while(slide) {
+        line = slide->line;
+        while(line && line->text) {
+            if (line->text->value) {
+                line->length -= url_len_inline(line->text->value);
+            }
+            line = line->next;
+        }
+        slide = slide->next;
+    }
+
+    // measure the deck against the current terminal geometry, showing an
+    // in-screen error and waiting for a resize (or quit) if it doesn't fit
+    if(!measure_or_wait(deck, bar_top, bar_bottom, &max_lines, &max_cols)) {
+        endwin();
+        return 0;
+    }
 
     // set colors
     if(has_colors() == TRUE) {
@@ -471,6 +596,15 @@ int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reloa
             } else {
                 // disable fading if reload is not possible
                 fade = false;
+            }
+        } else if (c == KEY_RESIZE) {
+            // terminal geometry changed; re-measure the current slide and
+            // keep displaying it, or bail out if the user asked to quit
+            // while waiting for the deck to fit again
+            fade = false;
+            if(!measure_or_wait(deck, bar_top, bar_bottom, &max_lines, &max_cols)) {
+                reload = 0;
+                slide = NULL;
             }
         } else if (evaluate_binding(quit_binding, c)) {
             // quit

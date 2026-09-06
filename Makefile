@@ -76,5 +76,6 @@ uninstall:
 
 test: $(TARGET)
 	python3 tests/test_comments.py
+	python3 tests/test_resize.py
 
 .PHONY: all clean install src test uninstall
