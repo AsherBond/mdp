@@ -62,6 +62,7 @@ src:
 clean:
 	$(MAKE) -C src clean
 	$(RM) $(TARGET)
+	$(RM) -r tests/__pycache__
 
 install:
 	install -d $(DESTDIR)$(BINDIR)
@@ -73,4 +74,7 @@ uninstall:
 	$(RM) $(DESTDIR)$(BINDIR)/$(TARGET)
 	$(RM) $(DESTDIR)$(MANDIR)/man1/$(TARGET).1
 
-.PHONY: all clean install src uninstall
+test: $(TARGET)
+	python3 tests/test_comments.py
+
+.PHONY: all clean install src test uninstall
