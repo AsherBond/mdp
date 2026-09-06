@@ -27,7 +27,7 @@ CFLAGS   += -Wall
 CPPFLAGS += -I../include
 
 ifeq ($(DEBUG),1)
-	CFLAGS := -O0 -Wall -g
+	CFLAGS := -fsanitize=address -O0 -Wall -g
 endif
 
 ifeq ($(OS),Windows_NT)
