@@ -5,7 +5,7 @@
  * Functions necessary to display a deck of slides in different color modes
  * using ncurses. Only white, red, and blue are supported, as they can be
  * faded in 256 color mode.
- * Copyright (C) 2018 Michael Goehler
+ * Copyright (C) 2026 Michael Goehler
  *
  * This file is part of mdp.
  *
@@ -25,10 +25,8 @@
  *
  * function: ncurses_display initializes ncurses, defines colors, calculates
  *           window geometry and handles key strokes
- * function: add_line detects inline markdown formatting and prints line char
- *           by char
- * function: fade_in, fade_out implementing color fading in 256 color mode
- * function: int_length to calculate decimal length of slide count
+ * function: setup_list_strings initializes wide-char strings used for
+ *           unordered list bullets
  *
  */
 
@@ -52,14 +50,7 @@
 #define CP_YELLOW 4 // 208
 #define CP_BLACK  5 // CP_WHITE with foreground and background swapped
 
-int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg);
-void add_line(WINDOW *window, int y, int x, line_t *line, int max_cols, int colors, int nocodebg);
-void inline_display(WINDOW *window, const wchar_t *c, const int colors, int nocodebg);
-void fade_out(WINDOW *window, int trans, int colors, int invert);
-void fade_in(WINDOW *window, int trans, int colors, int invert);
-int int_length (int val);
-int get_slide_number(char init);
+int ncurses_display(deck_t *deck, int notrans, int nofade, int invert, int reload, int noreload, int slidenum, int nocodebg, int top_indent, int left_indent);
 void setup_list_strings(void);
-bool evaluate_binding(const int bindings[], int c);
 
 #endif // !defined( VIEWER_H )

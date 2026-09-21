@@ -1,6 +1,6 @@
 #
 # Makefile
-# Copyright (C) 2018 Michael Goehler
+# Copyright (C) 2026 Michael Goehler
 #
 # This file is part of mdp.
 #
@@ -45,7 +45,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 ifeq ($(DEBUG),1)
-	CFLAGS := -O0 -Wall -g
+	CFLAGS := -fsanitize=address -O0 -Wall -g
 	LDFLAGS := 
 endif
 
@@ -62,6 +62,7 @@ src:
 clean:
 	$(MAKE) -C src clean
 	$(RM) $(TARGET)
+	$(RM) -r tests/__pycache__
 
 install:
 	install -d $(DESTDIR)$(BINDIR)
@@ -73,4 +74,8 @@ uninstall:
 	$(RM) $(DESTDIR)$(BINDIR)/$(TARGET)
 	$(RM) $(DESTDIR)$(MANDIR)/man1/$(TARGET).1
 
-.PHONY: all clean install src uninstall
+test: $(TARGET)
+	python3 tests/test_comments.py
+	python3 tests/test_resize.py
+
+.PHONY: all clean install src test uninstall

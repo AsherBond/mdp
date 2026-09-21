@@ -3,7 +3,7 @@
 
 /*
  * Macros to do bit operations on integer variables.
- * Copyright (C) 2018 Michael Goehler
+ * Copyright (C) 2026 Michael Goehler
  *
  * This file is part of mdp.
  *

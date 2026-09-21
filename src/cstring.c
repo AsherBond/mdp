@@ -1,6 +1,6 @@
 /*
  * An implementation of expandable c strings in heap memory.
- * Copyright (C) 2018 Michael Goehler
+ * Copyright (C) 2026 Michael Goehler
  *
  * This file is part of mdp.
  *
@@ -56,6 +56,7 @@ void cstring_expand(cstring_t *self, wchar_t x) {
 }
 
 void cstring_expand_arr(cstring_t *self, wchar_t *x) {
+    int was_empty = (self->value == NULL);
     if((self->size + wcslen(x) + 1) * sizeof(wchar_t) > self->alloc) {
         self->alloc = ((self->size + wcslen(x) + 1) * sizeof(wchar_t));
         if((self->value = realloc(self->value, self->alloc)) == NULL) {
@@ -63,9 +64,9 @@ void cstring_expand_arr(cstring_t *self, wchar_t *x) {
             exit(EXIT_FAILURE);
         }
     }
+    if(was_empty) self->value[0] = L'\0';
     self->value = wcscat(self->value, x);
     self->size = wcslen(self->value);
-    self->value[self->size+1] = L'\0';
 }
 
 void cstring_strip(cstring_t *self, int pos, int len) {

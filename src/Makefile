@@ -1,6 +1,6 @@
 #
 # Makefile
-# Copyright (C) 2018 Michael Goehler
+# Copyright (C) 2026 Michael Goehler
 #
 # This file is part of mdp.
 #
@@ -27,7 +27,7 @@ CFLAGS   += -Wall
 CPPFLAGS += -I../include
 
 ifeq ($(DEBUG),1)
-	CFLAGS := -O0 -Wall -g
+	CFLAGS := -fsanitize=address -O0 -Wall -g
 endif
 
 ifeq ($(OS),Windows_NT)
@@ -49,4 +49,3 @@ all: $(OBJECTS)
 
 clean:
 	$(RM) $(OBJECTS)
-

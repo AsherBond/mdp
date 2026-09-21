@@ -1,6 +1,6 @@
 /*
  * mdp -- A command-line based markdown presentation tool.
- * Copyright (C) 2018 Michael Goehler
+ * Copyright (C) 2026 Michael Goehler
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,41 +27,58 @@
 
 #include "main.h"
 
-int is_number(const char *str) {
-    while (*str) {
-        if (!isdigit((unsigned char)*str)) return 0;
-        str++;
-    }
-    return 1;
-}
-
-void usage() {
+static void usage() {
     fprintf(stderr, "%s", "Usage: mdp [OPTION]... [FILE]\n");
     fprintf(stderr, "%s", "A command-line based markdown presentation tool.\n\n");
-    fprintf(stderr, "%s", "  -c, --nocodebg    don't change the background color of code blocks\n");
-    fprintf(stderr, "%s", "  -d, --debug       enable debug messages on STDERR\n");
-    fprintf(stderr, "%s", "                    add it multiple times to increases debug level\n");
-    fprintf(stderr, "%s", "  -e, --expand      enable character entity expansion\n");
-    fprintf(stderr, "%s", "  -f, --nofade      disable color fading in 256 color mode\n");
-    fprintf(stderr, "%s", "  -h, --help        display this help and exit\n");
-    fprintf(stderr, "%s", "  -i, --invert      swap black and white color\n");
-    fprintf(stderr, "%s", "  -j N, --jump N    jump to slide N\n");
-    fprintf(stderr, "%s", "  -t, --notrans     disable transparency in transparent terminal\n");
-    fprintf(stderr, "%s", "  -s, --noslidenum  do not show slide number at the bottom\n");
-    fprintf(stderr, "%s", "  -v, --version     display the version number and license\n");
-    fprintf(stderr, "%s", "  -x, --noslidemax  show slide number, but not total number of slides\n");
+    fprintf(stderr, "%s", "  -c, --nocodebg         don't change the background color of code blocks\n");
+    fprintf(stderr, "%s", "  -d, --debug            enable debug messages on STDERR\n");
+    fprintf(stderr, "%s", "                         add it multiple times to increases debug level\n");
+    fprintf(stderr, "%s", "  -e, --expand           enable character entity expansion\n");
+    fprintf(stderr, "%s", "  -f, --nofade           disable color fading in 256 color mode\n");
+    fprintf(stderr, "%s", "  -h, --help             display this help and exit\n");
+    fprintf(stderr, "%s", "  -i, --invert           swap black and white color\n");
+    fprintf(stderr, "%s", "  -j N, --jump N         jump to slide N\n");
+    fprintf(stderr, "%s", "  -L N, --left-indent N  shift slide content N columns to the right\n");
+    fprintf(stderr, "%s", "  -s, --noslidenum       do not show slide number at the bottom\n");
+    fprintf(stderr, "%s", "  -t, --notrans          disable transparency in transparent terminal\n");
+    fprintf(stderr, "%s", "  -T N, --top-indent N   shift slide content N rows down\n");
+    fprintf(stderr, "%s", "  -v, --version          display the version number and license\n");
+    fprintf(stderr, "%s", "  -x, --noslidemax       show slide number, but not total number of slides\n");
     fprintf(stderr, "%s", "\nWith no FILE, or when FILE is -, read standard input.\n\n");
     exit(EXIT_FAILURE);
 }
 
-void version() {
+static void version() {
     printf("mdp %d.%d.%d\n", MDP_VER_MAJOR, MDP_VER_MINOR, MDP_VER_REVISION);
-    printf("Copyright (C) 2018 Michael Goehler\n");
+    printf("Copyright (C) 2026 Michael Goehler\n");
     printf("License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.\n");
     printf("This is free software: you are free to change and redistribute it.\n");
     printf("There is NO WARRANTY, to the extent permitted by law.\n");
     printf("\nWritten by Michael Goehler and others, see <https://github.com/visit1985/mdp/blob/master/AUTHORS>.\n");
     exit(EXIT_SUCCESS);
+}
+
+static int parse_integer(const char *str, const char *argv0, const char *name, int negative) {
+    char *end = NULL;
+    long value;
+
+    if (!str || *str == '\0') {
+        fprintf(stderr, "%s: missing value for %s\n", argv0, name);
+        usage();
+    }
+
+    errno = 0;
+    value = strtol(str, &end, 10);
+    if (errno == ERANGE || end == str || *end != '\0') {
+        fprintf(stderr, "%s: invalid numeric value for %s: '%s'\n", argv0, name, str);
+        usage();
+    }
+    if (!negative && value < 0) {
+        fprintf(stderr, "%s: invalid value for %s: '%s' (must be non-negative)\n", argv0, name, str);
+        usage();
+    }
+
+    return (int) value;
 }
 
 int main(int argc, char *argv[]) {
@@ -73,26 +90,30 @@ int main(int argc, char *argv[]) {
     int noreload = 1;  // reload disabled until we know input is a file
     int slidenum = 2;  // 0:don't show; 1:show #; 2:show #/#
     int nocodebg = 0;  // 0:show code bg as inverted; 1: don't invert code bg
+    int top_indent = 0; // slide content offset from the top
+    int left_indent = 0; // slide content offset from the left
 
     // define command-line options
     struct option longopts[] = {
-        { "nocodebg",   no_argument,       0, 'c' },
-        { "debug",      no_argument,       0, 'd' },
-        { "expand",     no_argument,       0, 'e' },
-        { "nofade",     no_argument,       0, 'f' },
-        { "help",       no_argument,       0, 'h' },
-        { "invert",     no_argument,       0, 'i' },
-        { "jump",       required_argument, 0, 'j' },
-        { "notrans",    no_argument,       0, 't' },
-        { "version",    no_argument,       0, 'v' },
-        { "noslidenum", no_argument,       0, 's' },
-        { "noslidemax", no_argument,       0, 'x' },
+        { "nocodebg",    no_argument,       0, 'c' },
+        { "debug",       no_argument,       0, 'd' },
+        { "expand",      no_argument,       0, 'e' },
+        { "nofade",      no_argument,       0, 'f' },
+        { "help",        no_argument,       0, 'h' },
+        { "invert",      no_argument,       0, 'i' },
+        { "jump",        required_argument, 0, 'j' },
+        { "left-indent", required_argument, 0, 'L' },
+        { "notrans",     no_argument,       0, 't' },
+        { "noslidenum",  no_argument,       0, 's' },
+        { "noslidemax",  no_argument,       0, 'x' },
+        { "top-indent",  required_argument, 0, 'T' },
+        { "version",     no_argument,       0, 'v' },
         { 0, 0, 0, 0 }
     };
 
     // parse command-line options
     int opt, debug = 0;
-    while ((opt = getopt_long(argc, argv, ":cdefhij:tvsx", longopts, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, ":cdefhij:L:T:tvsx", longopts, NULL)) != -1) {
         switch(opt) {
             case 'c': nocodebg = 1; break;
             case 'd': debug += 1;   break;
@@ -101,15 +122,16 @@ int main(int argc, char *argv[]) {
             case 'h': usage();      break;
             case 'i': invert = 1;   break;
             case 'j':
-                if(!is_number(optarg)) {
-                    fprintf(stderr, "%s: '%s' is not a valid number\n", argv[0], optarg);
-                    usage();
-                    break;
-                }
-                reload = atoi(optarg);
+                reload = parse_integer(optarg, argv[0], "--jump", 0);
                 noreload = 0;
                 break;
+            case 'L':
+                left_indent = parse_integer(optarg, argv[0], "--left-indent", 1);
+                break;
             case 't': notrans = 1;  break;
+            case 'T':
+                top_indent = parse_integer(optarg, argv[0], "--top-indent", 1);
+                break;
             case 'v': version();    break;
             case 's': slidenum = 0; break;
             case 'x': slidenum = 1; break;
@@ -187,7 +209,7 @@ int main(int argc, char *argv[]) {
             markdown_debug(deck, debug);
         }
 
-        reload = ncurses_display(deck, notrans, nofade, invert, reload, noreload, slidenum, nocodebg);
+        reload = ncurses_display(deck, notrans, nofade, invert, reload, noreload, slidenum, nocodebg, top_indent, left_indent);
 
         free_deck(deck);
 

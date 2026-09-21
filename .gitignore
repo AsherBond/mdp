@@ -5,6 +5,9 @@
 mdp
 mdp.exe
 
+# Python bytecode cache
+__pycache__/
+
 # Other temporary files
 .DS_Store
 .idea

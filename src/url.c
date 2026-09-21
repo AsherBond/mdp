@@ -1,6 +1,6 @@
 /*
  * Functions necessary to handle pandoc URLs.
- * Copyright (C) 2018 Michael Goehler
+ * Copyright (C) 2026 Michael Goehler
  *
  * This file is part of mdp.
  *
@@ -27,8 +27,6 @@
 #include "url.h"
 
 static void url_del_elem(url_t *elem);
-static void url_print(url_t *u);
-
 static url_t *list;
 static int index_max;
 static int init_ok;
@@ -96,19 +94,6 @@ wchar_t * url_get_target(int index) {
     } else return NULL;
 }
 
-wchar_t * url_get_name(int index) {
-    url_t *tmp = list;
-
-    while (index > 0 && tmp && tmp->next) {
-        tmp = tmp->next;
-        index --;
-    }
-
-    if (!index) {
-        return tmp->link_name;
-    } else return NULL;
-}
-
 void url_purge() {
     url_del_elem(list);
     list = NULL;
@@ -117,41 +102,22 @@ void url_purge() {
 }
 
 static void url_del_elem(url_t *elem) {
-    if (!elem) return;
+    while (elem) {
+        url_t *next = elem->next;
 
-    if (elem->next) {
-        url_del_elem(elem->next);
-        elem->next = NULL;
+        if (elem->target) {
+            free(elem->target);
+            elem->target = NULL;
+        }
+
+        if (elem->link_name) {
+            free(elem->link_name);
+            elem->link_name = NULL;
+        }
+
+        free(elem);
+        elem = next;
     }
-
-    if (elem->target) {
-        free(elem->target);
-        elem->target = NULL;
-    }
-
-    if (elem->link_name) {
-        free(elem->link_name);
-        elem->link_name = NULL;
-    }
-
-    free(elem);
-}
-
-void url_dump(void) {
-    if (!list) return;
-
-    url_t *tmp = list;
-
-    while (tmp) {
-        url_print(tmp);
-        if (tmp->next)
-            tmp = tmp->next;
-        else break;
-    }
-}
-
-static void url_print(url_t *u) {
-    printf("url_t @ %p\n", u);
 }
 
 int url_get_amount(void) {

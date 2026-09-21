@@ -1,6 +1,6 @@
 # package name
 NAME="mdp"
-VERSION=1.0.18
+VERSION=1.0.19
 RELEASE=1
 
 # package metadata
